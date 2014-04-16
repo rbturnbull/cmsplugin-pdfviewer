@@ -1,0 +1,66 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: cmsplugin-pdfviewer\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-04-16 12:57+0200\n"
+"PO-Revision-Date: 2014-04-16 12:57+0100\n"
+"Last-Translator: Léo S <leo@naeka.fr>\n"
+"Language-Team: Naeka <contact@naeka.fr>\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.5.4\n"
+
+#: cms_plugins.py:12
+msgid "PDF viewer"
+msgstr ""
+
+#: models.py:17
+msgid "pdf"
+msgstr ""
+
+#: models.py:18
+msgid "title"
+msgstr ""
+
+#: models.py:25
+msgid "<empty>"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:12
+msgid "Download"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:17
+msgid "Previous Page"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:18
+msgid "Next Page"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:20
+msgid "Page:"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:22
+msgid "of"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:26
+msgid "Actual Size"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:30
+msgid "Half Size"
+msgstr ""
+
+#: templates/cmsplugin_pdfviewer/plugin.html:58
+msgid "PDF is missing"
+msgstr ""

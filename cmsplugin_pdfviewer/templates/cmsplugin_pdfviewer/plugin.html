@@ -1,0 +1,60 @@
+{% load i18n staticfiles sekizai_tags %}
+
+{% if object.pdf.url %}
+    <h4>{% if object.title %}{{ object.title }}{% else %}{{ object.get_file_name }}{% endif %}</h4>
+
+    {% if object.file_exists %}
+        <div class="plugin_pdfviewer-container">
+            <div id="plugin_pdfviewer-doc-{{ object.pk }}" class="h-pdf-container">
+                <div class="h-pdf-toolbar">
+                    <div class="h-pdf-toolbar-left"></div>
+                    <div class="h-pdf-toolbar-right">
+                        <div class="h-pdf-button h-pdf-download" title="{% trans "Download" %}"></div>
+                    </div>
+                    <div class="h-pdf-toolbar-center-outer">
+                        <div class="h-pdf-toolbar-center">
+                            <div class="h-pdf-toolbar-group">
+                                <div class="h-pdf-button h-pdf-prev" title="{% trans "Previous Page" %}"></div>
+                                <div class="h-pdf-button h-pdf-next" title="{% trans "Next Page" %}"></div>
+                            </div>
+                            <span class="h-pdf-pagetext">{% trans "Page:" %}</span>
+                            <input type="text" class="h-pdf-pageinput" value="1">
+                            <span class="h-pdf-pagetext">{% trans "of" %} </span>
+                            <span class="h-pdf-pagecount">1</span>
+                            <span class="h-pdf-zoom">
+                                <select class="h-pdf-zoom-select">
+                                    <option value="1">{% trans "Actual Size" %}</option>
+                                    <option value="2">200%</option>
+                                    <option value="3">300%</option>
+                                    <option value="1.5">150%</option>
+                                    <option value="0.5">{% trans "Half Size" %}</option>
+                                    <option value="0.25">25%</option>
+                                    <option value="0.1">10%</option>
+                                </select>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="h-pdf-canvas-container">
+                    <canvas class="h-pdf-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        {% addtoblock "css" %}
+        <link rel="stylesheet" href="{% static "css/cmsplugin_pdfviewer/plugin.css" %}">
+        {% endaddtoblock %}
+
+        {% addtoblock "js" %}
+        <script type="text/javascript" src="{% static "js/cmsplugin_pdfviewer/pdf.js" %}"></script>
+        <script type="text/javascript" src="{% static "js/cmsplugin_pdfviewer/plugin.js" %}"></script>
+        <script type="text/javascript">
+            (function () {
+                $('#plugin_pdfviewer-doc-{{ object.pk }}').PDFViewer({source: '{{ object.pdf.url }}'});
+            })();
+        </script>
+        {% endaddtoblock %}
+    {% else %}
+        <p>{% trans "PDF is missing" %}</p>
+    {% endif %}
+{% endif %}
