@@ -8,14 +8,24 @@ from django.utils.translation import ugettext_lazy as _
 from cms.models import CMSPlugin
 from cms.utils.compat.dj import python_2_unicode_compatible
 
+try:
+    from filer.fields.file import FilerFileField
+    FILER_INSTALLED = True
+except:
+    FILER_INSTALLED = False
+
 
 @python_2_unicode_compatible
 class PDFViewer(CMSPlugin):
     """
     Plugin for storing and displaying a PDF wrapped in a PDF.js instance.
     """
-    pdf = models.FileField(_('pdf'), upload_to=CMSPlugin.get_media_path)
     title = models.CharField(_('title'), max_length=255, null=True, blank=True)
+    
+    if FILER_INSTALLED and getattr(settings, 'PDFVIEWER_USE_FILER', False):
+        pdf = FilerFileField(verbose_name=_('pdf'))   
+    else:
+        pdf = models.FileField(_('pdf'), upload_to=CMSPlugin.get_media_path)
 
     def __str__(self):
         if self.title:
@@ -25,12 +35,18 @@ class PDFViewer(CMSPlugin):
         return _('<empty>')
 
     def file_exists(self):
-        return default_storage.exists(self.pdf.name)
+        try:
+            return default_storage.exists(self.pdf.file.name)
+        except AttributeError:
+            return default_storage.exists(self.pdf.name)
 
     def get_pdf_name(self):
-        return os.path.basename(self.pdf.name)
+        return os.path.basename(self.pdf.name) or self.pdf.original_filename
 
     def get_ext(self):
-        return os.path.splitext(self.get_pdf_name())[1][1:].lower()
+        try:
+            return self.pdf.extension
+        except AttributeError:
+            return os.path.splitext(self.get_pdf_name())[1][1:].lower()
 
     search_fields = ('title',)

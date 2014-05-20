@@ -11,7 +11,6 @@ class PDFViewerPlugin(CMSPluginBase):
     model = PDFViewer
     name = _('PDF viewer')
     render_template = 'cmsplugin_pdfviewer/plugin.html'
-    text_enabled = True
 
     def render(self, context, instance, placeholder):
         context.update({
