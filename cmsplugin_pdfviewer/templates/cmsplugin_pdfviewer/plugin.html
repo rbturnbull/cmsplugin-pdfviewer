@@ -4,7 +4,7 @@
     <h4>{% if object.title %}{{ object.title }}{% else %}{{ object.get_file_name }}{% endif %}</h4>
 
     {% if object.file_exists %}
-        <div class="plugin_pdfviewer-container">
+        <div class="plugin_pdfviewer-container hidden-xs">
             <div id="plugin_pdfviewer-doc-{{ object.pk }}" class="h-pdf-container">
                 <div class="h-pdf-toolbar">
                     <div class="h-pdf-toolbar-left"></div>
@@ -40,6 +40,21 @@
                 </div>
             </div>
         </div>
+        <p class="plugin_file visible-xs">
+            <a href="{{ object.pdf.url }}">
+                {% if object.title %}
+                    <span class="filetitle">{{ object.title }}
+                {% else %}
+                    {{ object }}
+                {% endif %}
+                {% if object.file_exists %}
+                    <span class="filesize">({{ object.pdf.size|filesizeformat }})</span>
+                {% else %}
+                    ({% trans "file missing!" %})
+                {% endif %}
+                {% if object.title %}</span>{% endif %}
+            </a>
+        </p>
 
         {% addtoblock "css" %}
         <link rel="stylesheet" href="{% static "css/cmsplugin_pdfviewer/plugin.css" %}">
@@ -50,7 +65,10 @@
         <script type="text/javascript" src="{% static "js/cmsplugin_pdfviewer/plugin.js" %}"></script>
         <script type="text/javascript">
             (function () {
-                $('#plugin_pdfviewer-doc-{{ object.pk }}').PDFViewer({source: '{{ object.pdf.url }}'});
+                // plugin_pdfviewer-container
+                if ($('#plugin_pdfviewer-doc-{{ object.pk }}').is(':visible')) {
+                    $('#plugin_pdfviewer-doc-{{ object.pk }}').PDFViewer({source: '{{ object.pdf.url }}'});
+                }
             })();
         </script>
         {% endaddtoblock %}
