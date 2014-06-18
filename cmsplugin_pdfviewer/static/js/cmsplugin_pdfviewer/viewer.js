@@ -18,8 +18,8 @@
            PDFFindController, ProgressBar, TextLayerBuilder, DownloadManager,
            getFileName, scrollIntoView, getPDFFileNameFromURL, PDFHistory,
            Preferences, ViewHistory, PageView, ThumbnailView, URL,
-           noContextMenuHandler, SecondaryToolbar, PasswordPrompt,
-           PresentationMode, HandTool, Promise, DocumentProperties */
+           noContextMenuHandler, PasswordPrompt,
+           PresentationMode, Promise, DocumentProperties */
 
 'use strict';
 
@@ -35,7 +35,7 @@ var MAX_AUTO_SCALE = 1.25;
 var MIN_SCALE = 0.25;
 var MAX_SCALE = 4.0;
 var VIEW_HISTORY_MEMORY = 20;
-var SCALE_SELECT_CONTAINER_PADDING = 8;
+var SCALE_SELECT_CONTAINER_PADDING = 16;
 var SCALE_SELECT_PADDING = 22;
 var THUMBNAIL_SCROLL_MARGIN = -19;
 var USE_ONLY_CSS_ZOOM = false;
@@ -323,7 +323,6 @@ PDFJS.imageResourcesPath = './images/';
       showPreviousViewOnLoad: true,
       defaultZoomValue: '',
       ifAvailableShowOutlineOnLoad: false,
-      enableHandToolOnLoad: false,
       enableWebGL: false
     };
 
@@ -475,134 +474,6 @@ PDFJS.imageResourcesPath = './images/';
         resolve(readPrefs);
       });
     };
-
-    (function mozPrintCallbackPolyfillClosure() {
-      if ('mozPrintCallback' in document.createElement('canvas')) {
-        return;
-      }
-      // Cause positive result on feature-detection:
-      HTMLCanvasElement.prototype.mozPrintCallback = undefined;
-
-      var canvases;   // During print task: non-live NodeList of <canvas> elements
-      var index;      // Index of <canvas> element that is being processed
-
-      var print = window.print;
-      window.print = function print() {
-        if (canvases) {
-          console.warn('Ignored window.print() because of a pending print job.');
-          return;
-        }
-        try {
-          dispatchEvent('beforeprint');
-        } finally {
-          canvases = document.querySelectorAll('canvas');
-          index = -1;
-          next();
-        }
-      };
-
-      function dispatchEvent(eventType) {
-        var event = document.createEvent('CustomEvent');
-        event.initCustomEvent(eventType, false, false, 'custom');
-        window.dispatchEvent(event);
-      }
-
-      function next() {
-        if (!canvases) {
-          return; // Print task cancelled by user (state reset in abort())
-        }
-
-        renderProgress();
-        if (++index < canvases.length) {
-          var canvas = canvases[index];
-          if (typeof canvas.mozPrintCallback === 'function') {
-            canvas.mozPrintCallback({
-              context: canvas.getContext('2d'),
-              abort: abort,
-              done: next
-            });
-          } else {
-            next();
-          }
-        } else {
-          renderProgress();
-          print.call(window);
-          setTimeout(abort, 20); // Tidy-up
-        }
-      }
-
-      function abort() {
-        if (canvases) {
-          canvases = null;
-          renderProgress();
-          dispatchEvent('afterprint');
-        }
-      }
-
-      function renderProgress() {
-        var progressContainer = $pluginInstance.find('.mozPrintCallback-shim').get(0);
-        if (canvases) {
-          var progress = Math.round(100 * index / canvases.length);
-          var progressBar = progressContainer.querySelector('progress');
-          var progressPerc = progressContainer.querySelector('.relative-progress');
-          progressBar.value = progress;
-          progressPerc.textContent = progress + '%';
-          progressContainer.removeAttribute('hidden');
-          progressContainer.onclick = abort;
-        } else {
-          progressContainer.setAttribute('hidden', '');
-        }
-      }
-
-      var hasAttachEvent = !!document.attachEvent;
-
-      window.addEventListener('keydown', function(event) {
-        // Intercept Cmd/Ctrl + P in all browsers.
-        // Also intercept Cmd/Ctrl + Shift + P in Chrome and Opera
-        if (event.keyCode === 80/*P*/ && (event.ctrlKey || event.metaKey) &&
-            !event.altKey && (!event.shiftKey || window.chrome || window.opera)) {
-          window.print();
-          if (hasAttachEvent) {
-            // Only attachEvent can cancel Ctrl + P dialog in IE <=10
-            // attachEvent is gone in IE11, so the dialog will re-appear in IE11.
-            return;
-          }
-          event.preventDefault();
-          if (event.stopImmediatePropagation) {
-            event.stopImmediatePropagation();
-          } else {
-            event.stopPropagation();
-          }
-          return;
-        }
-        if (event.keyCode === 27 && canvases) { // Esc
-          abort();
-        }
-      }, true);
-      if (hasAttachEvent) {
-        document.attachEvent('onkeydown', function(event) {
-          event = event || window.event;
-          if (event.keyCode === 80/*P*/ && event.ctrlKey) {
-            event.keyCode = 0;
-            return false;
-          }
-        });
-      }
-
-      if ('onbeforeprint' in window) {
-        // Do not propagate before/afterprint events when they are not triggered
-        // from within this polyfill. (FF/IE).
-        var stopPropagationIfNeeded = function(event) {
-          if (event.detail !== 'custom' && event.stopImmediatePropagation) {
-            event.stopImmediatePropagation();
-          }
-        };
-        window.addEventListener('beforeprint', stopPropagationIfNeeded, false);
-        window.addEventListener('afterprint', stopPropagationIfNeeded, false);
-      }
-    })();
-
-
 
     var DownloadManager = (function DownloadManagerClosure() {
 
@@ -1610,44 +1481,30 @@ PDFJS.imageResourcesPath = './images/';
     };
 
 
-    var SecondaryToolbar = {
+    var Toolbar = {
       opened: false,
       previousContainerHeight: null,
       newContainerHeight: null,
 
-      initialize: function secondaryToolbarInitialize(options) {
+      initialize: function toolbarInitialize(options) {
         this.toolbar = options.toolbar;
         this.presentationMode = options.presentationMode;
         this.documentProperties = options.documentProperties;
         this.buttonContainer = this.toolbar.firstElementChild;
 
         // Define the toolbar buttons.
-        this.toggleButton = options.toggleButton;
         this.presentationModeButton = options.presentationModeButton;
-        this.openFile = options.openFile;
-        this.print = options.print;
         this.download = options.download;
-        this.viewBookmark = options.viewBookmark;
-        this.firstPage = options.firstPage;
-        this.lastPage = options.lastPage;
         this.pageRotateCw = options.pageRotateCw;
         this.pageRotateCcw = options.pageRotateCcw;
         this.documentPropertiesButton = options.documentPropertiesButton;
 
         // Attach the event listeners.
         var elements = [
-          // Button to toggle the visibility of the secondary toolbar:
-          { element: this.toggleButton, handler: this.toggle },
-          // All items within the secondary toolbar
-          // (except for toggleHandTool, hand_tool.js is responsible for it):
+          // All items within the toolbar
           { element: this.presentationModeButton,
             handler: this.presentationModeClick },
-          { element: this.openFile, handler: this.openFileClick },
-          { element: this.print, handler: this.printClick },
           { element: this.download, handler: this.downloadClick },
-          { element: this.viewBookmark, handler: this.viewBookmarkClick },
-          { element: this.firstPage, handler: this.firstPageClick },
-          { element: this.lastPage, handler: this.lastPageClick },
           { element: this.pageRotateCw, handler: this.pageRotateCwClick },
           { element: this.pageRotateCcw, handler: this.pageRotateCcwClick },
           { element: this.documentPropertiesButton,
@@ -1663,94 +1520,28 @@ PDFJS.imageResourcesPath = './images/';
       },
 
       // Event handling functions.
-      presentationModeClick: function secondaryToolbarPresentationModeClick(evt) {
+      presentationModeClick: function toolbarPresentationModeClick(evt) {
         console.log('prez')        
         this.presentationMode.request();
         this.close();
       },
 
-      openFileClick: function secondaryToolbarOpenFileClick(evt) {
-        $pluginInstance.find('.fileInput').click();
-        this.close();
-      },
-
-      printClick: function secondaryToolbarPrintClick(evt) {
-        window.print();
-        this.close();
-      },
-
-      downloadClick: function secondaryToolbarDownloadClick(evt) {
+      downloadClick: function toolbarDownloadClick(evt) {
         PDFView.download();
         this.close();
       },
 
-      viewBookmarkClick: function secondaryToolbarViewBookmarkClick(evt) {
-        this.close();
-      },
-
-      firstPageClick: function secondaryToolbarFirstPageClick(evt) {
-        PDFView.page = 1;
-        this.close();
-      },
-
-      lastPageClick: function secondaryToolbarLastPageClick(evt) {
-        PDFView.page = PDFView.pdfDocument.numPages;
-        this.close();
-      },
-
-      pageRotateCwClick: function secondaryToolbarPageRotateCwClick(evt) {
+      pageRotateCwClick: function toolbarPageRotateCwClick(evt) {
         PDFView.rotatePages(90);
       },
 
-      pageRotateCcwClick: function secondaryToolbarPageRotateCcwClick(evt) {
+      pageRotateCcwClick: function toolbarPageRotateCcwClick(evt) {
         PDFView.rotatePages(-90);
       },
 
-      documentPropertiesClick: function secondaryToolbarDocumentPropsClick(evt) {
+      documentPropertiesClick: function toolbarDocumentPropsClick(evt) {
         this.documentProperties.show();
         this.close();
-      },
-
-      // Misc. functions for interacting with the toolbar.
-      setMaxHeight: function secondaryToolbarSetMaxHeight(container) {
-        if (!container || !this.buttonContainer) {
-          return;
-        }
-        this.newContainerHeight = container.clientHeight;
-        if (this.previousContainerHeight === this.newContainerHeight) {
-          return;
-        }
-        this.buttonContainer.setAttribute('style',
-          'max-height: ' + (this.newContainerHeight - SCROLLBAR_PADDING) + 'px;');
-        this.previousContainerHeight = this.newContainerHeight;
-      },
-
-      open: function secondaryToolbarOpen() {
-        if (this.opened) {
-          return;
-        }
-        this.opened = true;
-        this.toggleButton.classList.add('toggled');
-        this.toolbar.classList.remove('hidden');
-      },
-
-      close: function secondaryToolbarClose(target) {
-        if (!this.opened) {
-          return;
-        } else if (target && !this.toolbar.contains(target)) {
-          return;
-        }
-        this.opened = false;
-        this.toolbar.classList.add('hidden');
-        this.toggleButton.classList.remove('toggled');
-      },
-
-      toggle: function secondaryToolbarToggle() {
-        if (this.opened) {
-          this.close();
-        } else {
-          this.open();
-        }
       }
     };
 
@@ -1765,7 +1556,7 @@ PDFJS.imageResourcesPath = './images/';
       passwordSubmit: null,
       passwordCancel: null,
 
-      initialize: function secondaryToolbarInitialize(options) {
+      initialize: function toolbarInitialize(options) {
         this.overlayContainer = options.overlayContainer;
         this.passwordField = options.passwordField;
         this.passwordText = options.passwordText;
@@ -1845,32 +1636,8 @@ PDFJS.imageResourcesPath = './images/';
 
       initialize: function presentationModeInitialize(options) {
         this.container = options.container;
-        this.secondaryToolbar = options.secondaryToolbar;
-
+        this.toolbar = options.toolbar;
         this.viewer = this.container.firstElementChild;
-
-        this.firstPage = options.firstPage;
-        this.lastPage = options.lastPage;
-        this.pageRotateCw = options.pageRotateCw;
-        this.pageRotateCcw = options.pageRotateCcw;
-
-        this.firstPage.addEventListener('click', function() {
-          this.contextMenuOpen = false;
-          this.secondaryToolbar.firstPageClick();
-        }.bind(this));
-        this.lastPage.addEventListener('click', function() {
-          this.contextMenuOpen = false;
-          this.secondaryToolbar.lastPageClick();
-        }.bind(this));
-
-        this.pageRotateCw.addEventListener('click', function() {
-          this.contextMenuOpen = false;
-          this.secondaryToolbar.pageRotateCwClick();
-        }.bind(this));
-        this.pageRotateCcw.addEventListener('click', function() {
-          this.contextMenuOpen = false;
-          this.secondaryToolbar.pageRotateCcwClick();
-        }.bind(this));
       },
 
       get isFullscreen() {
@@ -1950,7 +1717,6 @@ PDFJS.imageResourcesPath = './images/';
         window.addEventListener('contextmenu', this.contextMenu, false);
 
         this.showControls();
-        HandTool.enterPresentationMode();
         this.contextMenuOpen = false;
         this.container.setAttribute('contextmenu', 'viewerContextMenu');
       },
@@ -1974,7 +1740,6 @@ PDFJS.imageResourcesPath = './images/';
 
         this.hideControls();
         PDFView.clearMouseScrollState();
-        HandTool.exitPresentationMode();
         this.container.removeAttribute('contextmenu');
         this.contextMenuOpen = false;
 
@@ -2279,62 +2044,6 @@ PDFJS.imageResourcesPath = './images/';
       return GrabToPan;
     })();
 
-    var HandTool = {
-      initialize: function handToolInitialize(options) {
-        var toggleHandTool = options.toggleHandTool;
-        this.handTool = new GrabToPan({
-          element: options.container,
-          onActiveChanged: function(isActive) {
-            if (!toggleHandTool) {
-              return;
-            }
-            if (isActive) {
-              toggleHandTool.title =
-                mozL10n.get('hand_tool_disable.title', null, 'Disable hand tool');
-              toggleHandTool.firstElementChild.textContent =
-                mozL10n.get('hand_tool_disable_label', null, 'Disable hand tool');
-            } else {
-              toggleHandTool.title =
-                mozL10n.get('hand_tool_enable.title', null, 'Enable hand tool');
-              toggleHandTool.firstElementChild.textContent =
-                mozL10n.get('hand_tool_enable_label', null, 'Enable hand tool');
-            }
-          }
-        });
-        if (toggleHandTool) {
-          toggleHandTool.addEventListener('click', this.toggle.bind(this), false);
-
-          $pluginInstance.get(0).addEventListener('localized', function (evt) {
-            Preferences.get('enableHandToolOnLoad').then(function (prefValue) {
-              if (prefValue) {
-                this.handTool.activate();
-              }
-            }.bind(this));
-          }.bind(this));
-        }
-      },
-
-      toggle: function handToolToggle() {
-        this.handTool.toggle();
-        SecondaryToolbar.close();
-      },
-
-      enterPresentationMode: function handToolEnterPresentationMode() {
-        if (this.handTool.active) {
-          this.wasActive = true;
-          this.handTool.deactivate();
-        }
-      },
-
-      exitPresentationMode: function handToolExitPresentationMode() {
-        if (this.wasActive) {
-          this.wasActive = null;
-          this.handTool.activate();
-        }
-      }
-    };
-
-
     var DocumentProperties = {
       overlayContainer: null,
       fileName: '',
@@ -2580,23 +2289,11 @@ PDFJS.imageResourcesPath = './images/';
           integratedFind: this.supportsIntegratedFind
         });
 
-        HandTool.initialize({
-          container: container,
-          toggleHandTool: $pluginInstance.find('.toggleHandTool').get(0)
-        });
-
-        SecondaryToolbar.initialize({
-          toolbar: $pluginInstance.find('.secondaryToolbar').get(0),
+        Toolbar.initialize({
+          toolbar: $pluginInstance.find('.toolbar').get(0),
           presentationMode: PresentationMode,
-          toggleButton: $pluginInstance.find('.secondaryToolbarToggle').get(0),
-          presentationModeButton:
-            $pluginInstance.find('.secondaryPresentationMode').get(0),
-          openFile: $pluginInstance.find('.secondaryOpenFile').get(0),
-          print: $pluginInstance.find('.secondaryPrint').get(0),
-          download: $pluginInstance.find('.secondaryDownload').get(0),
-          viewBookmark: $pluginInstance.find('.secondaryViewBookmark').get(0),
-          firstPage: $pluginInstance.find('.firstPage').get(0),
-          lastPage: $pluginInstance.find('.lastPage').get(0),
+          presentationModeButton: $pluginInstance.find('.presentationMode').get(0),
+          download: $pluginInstance.find('.download').get(0),
           pageRotateCw: $pluginInstance.find('.pageRotateCw').get(0),
           pageRotateCcw: $pluginInstance.find('.pageRotateCcw').get(0),
           documentProperties: DocumentProperties,
@@ -2613,11 +2310,7 @@ PDFJS.imageResourcesPath = './images/';
 
         PresentationMode.initialize({
           container: container,
-          secondaryToolbar: SecondaryToolbar,
-          firstPage: $pluginInstance.find('.contextFirstPage').get(0),
-          lastPage: $pluginInstance.find('.contextLastPage').get(0),
-          pageRotateCw: $pluginInstance.find('.contextPageRotateCw').get(0),
-          pageRotateCcw: $pluginInstance.find('.contextPageRotateCcw').get(0)
+          toolbar: Toolbar
         });
 
         DocumentProperties.initialize({
@@ -2803,17 +2496,6 @@ PDFJS.imageResourcesPath = './images/';
         return currentPageNumber;
       },
 
-      get supportsPrinting() {
-        var canvas = document.createElement('canvas');
-        var value = 'mozPrintCallback' in canvas;
-        // shadow
-        Object.defineProperty(this, 'supportsPrinting', { value: value,
-                                                          enumerable: true,
-                                                          configurable: true,
-                                                          writable: false });
-        return value;
-      },
-
       get supportsFullscreen() {
         var doc = document.documentElement;
         var support = doc.requestFullscreen || doc.mozRequestFullScreen ||
@@ -2915,6 +2597,7 @@ PDFJS.imageResourcesPath = './images/';
 
         var parameters = {password: password};
         if (typeof url === 'string') { // URL
+          this.url = url;
           parameters.url = url;
         } else if (url && 'byteLength' in url) { // ArrayBuffer
           parameters.data = url;
@@ -2976,6 +2659,7 @@ PDFJS.imageResourcesPath = './images/';
           downloadManager.downloadUrl(url, filename);
         }
 
+        console.log(this.url)
         var url = this.url.split('#')[0];
         var filename = getPDFFileNameFromURL(url);
         var downloadManager = new DownloadManager();
@@ -3317,28 +3001,6 @@ PDFJS.imageResourcesPath = './images/';
           firstPagePromise.then(function () {
             self.setInitialView(null, scale);
           });
-        });
-
-        pagesPromise.then(function() {
-          if (PDFView.supportsPrinting) {
-            pdfDocument.getJavaScript().then(function(javaScript) {
-              if (javaScript.length) {
-                console.warn('Warning: JavaScript is not supported');
-                PDFView.fallback(PDFJS.UNSUPPORTED_FEATURES.javaScript);
-              }
-              // Hack to support auto printing.
-              var regex = /\bprint\s*\(/g;
-              for (var i = 0, ii = javaScript.length; i < ii; i++) {
-                var js = javaScript[i];
-                if (js && regex.test(js)) {
-                  setTimeout(function() {
-                    window.print();
-                  });
-                  return;
-                }
-              }
-            });
-          }
         });
 
         var destinationsPromise =
@@ -3736,47 +3398,6 @@ PDFJS.imageResourcesPath = './images/';
           params[decodeURIComponent(key)] = decodeURIComponent(value);
         }
         return params;
-      },
-
-      beforePrint: function pdfViewSetupBeforePrint() {
-        if (!this.supportsPrinting) {
-          var printMessage = mozL10n.get('printing_not_supported', null,
-              'Warning: Printing is not fully supported by this browser.');
-          this.error(printMessage);
-          return;
-        }
-
-        var alertNotReady = false;
-        var i, ii;
-        if (!this.pages.length) {
-          alertNotReady = true;
-        } else {
-          for (i = 0, ii = this.pages.length; i < ii; ++i) {
-            if (!this.pages[i].pdfPage) {
-              alertNotReady = true;
-              break;
-            }
-          }
-        }
-        if (alertNotReady) {
-          var notReadyMessage = mozL10n.get('printing_not_ready', null,
-              'Warning: The PDF is not fully loaded for printing.');
-          window.alert(notReadyMessage);
-          return;
-        }
-
-        var body = document.querySelector('body');
-        body.setAttribute('data-mozPrintCallback', true);
-        for (i = 0, ii = this.pages.length; i < ii; ++i) {
-          this.pages[i].beforePrint();
-        }
-      },
-
-      afterPrint: function pdfViewSetupAfterPrint() {
-        var div = $pluginInstance.find('.printContainer').get(0);
-        while (div.hasChildNodes()) {
-          div.removeChild(div.lastChild);
-        }
       },
 
       rotatePages: function pdfViewRotatePages(delta) {
@@ -4474,61 +4095,6 @@ PDFJS.imageResourcesPath = './images/';
         div.setAttribute('data-loaded', true);
       };
 
-      this.beforePrint = function pageViewBeforePrint() {
-        var pdfPage = this.pdfPage;
-
-        var viewport = pdfPage.getViewport(1);
-        // Use the same hack we use for high dpi displays for printing to get better
-        // output until bug 811002 is fixed in FF.
-        var PRINT_OUTPUT_SCALE = 2;
-        var canvas = document.createElement('canvas');
-        canvas.width = Math.floor(viewport.width) * PRINT_OUTPUT_SCALE;
-        canvas.height = Math.floor(viewport.height) * PRINT_OUTPUT_SCALE;
-        canvas.style.width = (PRINT_OUTPUT_SCALE * viewport.width) + 'pt';
-        canvas.style.height = (PRINT_OUTPUT_SCALE * viewport.height) + 'pt';
-        var cssScale = 'scale(' + (1 / PRINT_OUTPUT_SCALE) + ', ' +
-                                  (1 / PRINT_OUTPUT_SCALE) + ')';
-        CustomStyle.setProp('transform' , canvas, cssScale);
-        CustomStyle.setProp('transformOrigin' , canvas, '0% 0%');
-
-        var printContainer = $pluginInstance.find('.printContainer').get(0);
-        var canvasWrapper = document.createElement('div');
-        canvasWrapper.style.width = viewport.width + 'pt';
-        canvasWrapper.style.height = viewport.height + 'pt';
-        canvasWrapper.appendChild(canvas);
-        printContainer.appendChild(canvasWrapper);
-
-        canvas.mozPrintCallback = function(obj) {
-          var ctx = obj.context;
-
-          ctx.save();
-          ctx.fillStyle = 'rgb(255, 255, 255)';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.restore();
-          ctx.scale(PRINT_OUTPUT_SCALE, PRINT_OUTPUT_SCALE);
-
-          var renderContext = {
-            canvasContext: ctx,
-            viewport: viewport,
-            intent: 'print'
-          };
-
-          pdfPage.render(renderContext).promise.then(function() {
-            // Tell the printEngine that rendering this canvas/page has finished.
-            obj.done();
-          }, function(error) {
-            console.error(error);
-            // Tell the printEngine that rendering this canvas/page has failed.
-            // This will make the print proces stop.
-            if ('abort' in obj) {
-              obj.abort();
-            } else {
-              obj.done();
-            }
-          });
-        };
-      };
-
       this.updateStats = function pageViewUpdateStats() {
         if (!this.stats) {
           return;
@@ -5147,19 +4713,6 @@ PDFJS.imageResourcesPath = './images/';
       var params = PDFView.parseQueryString(document.location.search.substring(1));
       var file = 'file' in params ? params.file : settings.source;
 
-      var fileInput = document.createElement('input');
-      fileInput.className = 'fileInput';
-      fileInput.setAttribute('type', 'file');
-      fileInput.oncontextmenu = noContextMenuHandler;
-      $pluginInstance.append(fileInput);
-
-      if (!window.File || !window.FileReader || !window.FileList || !window.Blob) {
-        $pluginInstance.find('.openFile').get(0).setAttribute('hidden', 'true');
-        $pluginInstance.find('.secondaryOpenFile').get(0).setAttribute('hidden', 'true');
-      } else {
-        $pluginInstance.find('.fileInput').get(0).value = null;
-      }
-
       // Special debugging flags in the hash section of the URL.
       var hash = document.location.hash.substring(1);
       var hashParams = PDFView.parseQueryString(hash);
@@ -5231,15 +4784,8 @@ PDFJS.imageResourcesPath = './images/';
         PDFBug.init();
       }
 
-      if (!PDFView.supportsPrinting) {
-        $pluginInstance.find('.print').get(0).classList.add('hidden');
-        $pluginInstance.find('.secondaryPrint').get(0).classList.add('hidden');
-      }
-
       if (!PDFView.supportsFullscreen) {
         $pluginInstance.find('.presentationMode').get(0).classList.add('hidden');
-        $pluginInstance.find('.secondaryPresentationMode').get(0).
-          classList.add('hidden');
       }
 
       if (PDFView.supportsIntegratedFind) {
@@ -5327,19 +4873,6 @@ PDFJS.imageResourcesPath = './images/';
           PDFView.setScale(this.value);
         });
 
-      $pluginInstance.find('.presentationMode').on('click',
-        SecondaryToolbar.presentationModeClick.bind(SecondaryToolbar));
-
-      $pluginInstance.find('.openFile').on('click',
-        SecondaryToolbar.openFileClick.bind(SecondaryToolbar));
-
-      $pluginInstance.find('.print').on('click',
-        SecondaryToolbar.printClick.bind(SecondaryToolbar));
-
-      $pluginInstance.find('.download').on('click',
-        SecondaryToolbar.downloadClick.bind(SecondaryToolbar));
-
-
       if (file) {
         PDFView.open(file, 0);
       }
@@ -5417,8 +4950,6 @@ PDFJS.imageResourcesPath = './images/';
         store.set('scrollTop', intTop);
       });
       var href = PDFView.getAnchorUrl(pdfOpenParams);
-      $pluginInstance.find('.viewBookmark').get(0).href = href;
-      $pluginInstance.find('.secondaryViewBookmark').get(0).href = href;
 
       // Update the current bookmark in the browsing history.
       PDFHistory.updateCurrentBookmark(pdfOpenParams, pageNumber);
@@ -5432,9 +4963,6 @@ PDFJS.imageResourcesPath = './images/';
         PDFView.setScale($pluginInstance.find('.scaleSelect').get(0).value);
       }
       updateViewarea();
-
-      // Set the 'max-height' CSS property of the secondary toolbar.
-      SecondaryToolbar.setMaxHeight(PDFView.container);
     });
 
     window.addEventListener('hashchange', function webViewerHashchange(evt) {
@@ -5464,12 +4992,10 @@ PDFJS.imageResourcesPath = './images/';
         fileReader.readAsArrayBuffer(file);
       }
 
+      PDFView.url = file.name;
+
       // URL does not reflect proper document location - hiding some icons.
-      $pluginInstance.find('.viewBookmark').get(0).setAttribute('hidden', 'true');
-      $pluginInstance.find('.secondaryViewBookmark').get(0).
-        setAttribute('hidden', 'true');
       $pluginInstance.find('.download').get(0).setAttribute('hidden', 'true');
-      $pluginInstance.find('.secondaryDownload').get(0).setAttribute('hidden', 'true');
     }, true);
 
     function selectScaleOption(value) {
@@ -5504,9 +5030,6 @@ PDFJS.imageResourcesPath = './images/';
           container.setAttribute('style', 'min-width: ' + width + 'px; ' +
                                           'max-width: ' + width + 'px;');
         }
-
-        // Set the 'max-height' CSS property of the secondary toolbar.
-        SecondaryToolbar.setMaxHeight(PDFView.container);
       });
     }, true);
 
@@ -5578,11 +5101,7 @@ PDFJS.imageResourcesPath = './images/';
     $pluginInstance.get(0).addEventListener('mousewheel', handleMouseWheel);
 
     $pluginInstance.get(0).addEventListener('click', function click(evt) {
-      if (!PresentationMode.active) {
-        if (SecondaryToolbar.opened && PDFView.container.contains(evt.target)) {
-          SecondaryToolbar.close();
-        }
-      } else if (evt.button === 0) {
+      if (PresentationMode.active && evt.button === 0) {
         // Necessary since preventDefault() in 'mousedown' won't stop
         // the event propagation in all circumstances in presentation mode.
         evt.preventDefault();
@@ -5656,7 +5175,7 @@ PDFJS.imageResourcesPath = './images/';
       if (cmd === 3 || cmd === 10) {
         switch (evt.keyCode) {
           case 80: // p
-            SecondaryToolbar.presentationModeClick();
+            Toolbar.presentationModeClick();
             handled = true;
             break;
           case 71: // g
@@ -5679,10 +5198,7 @@ PDFJS.imageResourcesPath = './images/';
       if (curElementTagName === 'INPUT' ||
           curElementTagName === 'TEXTAREA' ||
           curElementTagName === 'SELECT') {
-        // Make sure that the secondary toolbar is closed when Escape is pressed.
-        if (evt.keyCode !== 27) { // 'Esc'
           return;
-        }
       }
 
       if (cmd === 0) { // no control key pressed at all.
@@ -5708,10 +5224,6 @@ PDFJS.imageResourcesPath = './images/';
             handled = true;
             break;
           case 27: // esc key
-            if (SecondaryToolbar.opened) {
-              SecondaryToolbar.close();
-              handled = true;
-            }
             if (!PDFView.supportsIntegratedFind && PDFFindBar.opened) {
               PDFFindBar.close();
               handled = true;
@@ -5747,12 +5259,6 @@ PDFJS.imageResourcesPath = './images/';
             if (PresentationMode.active) {
               PDFView.page = PDFView.pdfDocument.numPages;
               handled = true;
-            }
-            break;
-
-          case 72: // 'h'
-            if (!PresentationMode.active) {
-              HandTool.toggle();
             }
             break;
           case 82: // 'r'
@@ -5817,14 +5323,6 @@ PDFJS.imageResourcesPath = './images/';
         evt.preventDefault();
         PDFView.clearMouseScrollState();
       }
-    });
-
-    window.addEventListener('beforeprint', function beforePrint(evt) {
-      PDFView.beforePrint();
-    });
-
-    window.addEventListener('afterprint', function afterPrint(evt) {
-      PDFView.afterPrint();
     });
 
     (function animationStartedClosure() {
