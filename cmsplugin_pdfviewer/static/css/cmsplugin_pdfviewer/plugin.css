@@ -281,7 +281,6 @@ html[dir='rtl'] .plugin_pdfviewer-container .toolbarSidebar {
 .plugin_pdfviewer-container .toolbarContainer,
 .plugin_pdfviewer-container .findbar {
   position: relative;
-  height: 32px;
   background-color: #474747; /* fallback */
   background-image: url(../../img/icons/plugins/cmsplugin_pdfviewer/texture.png),
                     linear-gradient(hsla(0,0%,32%,.99), hsla(0,0%,27%,.95));
@@ -301,10 +300,6 @@ html[dir='rtl'] .plugin_pdfviewer-container .toolbarContainer,
               inset 0 -1px 0 hsla(0,0%,100%,.05),
               0 1px 0 hsla(0,0%,0%,.15),
               0 1px 1px hsla(0,0%,0%,.1);
-}
-
-.plugin_pdfviewer-container .toolbarViewer {
-  height: 32px;
 }
 
 .plugin_pdfviewer-container .loadingBar {
@@ -377,11 +372,11 @@ html[dir='rtl'] .plugin_pdfviewer-container .toolbarContainer,
 }
 
 html[dir='ltr'] .plugin_pdfviewer-container .findbar {
-  left: 68px;
+  left: 58px;
 }
 
 html[dir='rtl'] .plugin_pdfviewer-container .findbar {
-  right: 68px;
+  right: 58px;
 }
 
 .plugin_pdfviewer-container .findbar label {
@@ -960,7 +955,7 @@ html[dir='rtl'] .plugin_pdfviewer-container .verticalToolbarSeparator {
   border-radius: 2px;
   color: hsl(0,0%,85%);
   font-size: 12px;
-  line-height: 14px;
+  line-height: 16px;
   text-align: left;
   -webkit-user-select: none;
   -moz-user-select: none;
