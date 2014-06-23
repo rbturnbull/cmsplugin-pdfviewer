@@ -35,10 +35,7 @@ class PDFViewer(CMSPlugin):
         return _('<empty>')
 
     def file_exists(self):
-        try:
-            return default_storage.exists(self.pdf.file.name)
-        except AttributeError:
-            return default_storage.exists(self.pdf.name)
+        return os.path.exists(self.pdf.path)
 
     def get_pdf_name(self):
         return os.path.basename(self.pdf.name) or self.pdf.original_filename
