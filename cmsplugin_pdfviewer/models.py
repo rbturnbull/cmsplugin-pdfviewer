@@ -6,7 +6,6 @@ from django.core.files.storage import default_storage
 from django.utils.translation import ugettext_lazy as _
 
 from cms.models import CMSPlugin
-from cms.utils.compat.dj import python_2_unicode_compatible
 
 try:
     from filer.fields.file import FilerFileField
@@ -15,7 +14,6 @@ except:
     FILER_INSTALLED = False
 
 
-@python_2_unicode_compatible
 class PDFViewer(CMSPlugin):
     """
     Plugin for storing and displaying a PDF wrapped in a PDF.js instance.

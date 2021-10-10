@@ -13,5 +13,8 @@ setup(
     zip_safe=False,
     include_package_data=True,
     install_requires=[
+        "Django>=3.2.0",
+        "django-cms>=3.8",
+        "South>=1.0.2",
     ],
 )
