@@ -1,20 +1,6 @@
-from setuptools import setup, find_packages
+#!/usr/bin/env python
 
-version = '1.0'
+import setuptools
 
-setup(
-    name='cmsplugin-pdfviewer',
-    version=version,
-    description='PDF viewer plugin for Django-CMS',
-    author='Naeka',
-    author_email='contact@naeka.fr',
-    url='https://github.com/naeka/cmsplugin-pdfviewer',
-    packages=find_packages(),
-    zip_safe=False,
-    include_package_data=True,
-    install_requires=[
-        "Django>=3.2.0",
-        "django-cms>=3.8",
-        "South>=1.0.2",
-    ],
-)
+if __name__ == "__main__":
+    setuptools.setup()
